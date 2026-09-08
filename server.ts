@@ -1,10 +1,10 @@
-import express from "express";
-import path from "path";
-import fs from "fs";
-import dotenv from "dotenv";
-import { GoogleGenAI, Modality } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import { Mp3Encoder } from "@breezystack/lamejs";
+import { GoogleGenAI, Modality } from "@google/genai";
+import dotenv from "dotenv";
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { createServer as createViteServer } from "vite";
 
 dotenv.config();
 
@@ -14,11 +14,11 @@ const PORT = 3000;
 app.use(express.json({ limit: "10mb" }));
 
 // Helper function to convert raw 16-bit PCM buffer to MP3
-function convertPcmToMp3(
+export function convertPcmToMp3(
   pcmBuffer: Buffer,
   sampleRate = 24000,
   numChannels = 1,
-  kbps = 128
+  kbps = 128,
 ): Buffer {
   try {
     const encoder = new Mp3Encoder(numChannels, sampleRate, kbps);
@@ -49,11 +49,11 @@ function convertPcmToMp3(
 }
 
 // Helper function to wrap raw PCM audio into standard WAV container
-function convertPcmToWav(
+export function convertPcmToWav(
   pcmBuffer: Buffer,
   sampleRate = 24000,
   numChannels = 1,
-  bitsPerSample = 16
+  bitsPerSample = 16,
 ): Buffer {
   // If already WAV formatted (starts with RIFF), return intact
   if (pcmBuffer.length >= 4 && pcmBuffer.toString("utf8", 0, 4) === "RIFF") {
@@ -109,11 +109,18 @@ app.post("/api/tts", async (req, res) => {
     if (!apiKey) {
       return res.status(500).json({
         success: false,
-        error: "GEMINI_API_KEY environment variable is not configured. Please set your API key in Settings > Secrets.",
+        error:
+          "GEMINI_API_KEY environment variable is not configured. Please set your API key in Settings > Secrets.",
       });
     }
 
-    const { text, voice = "Kore", stylePrompt, mode = "single", speakers } = req.body;
+    const {
+      text,
+      voice = "Kore",
+      stylePrompt,
+      mode = "single",
+      speakers,
+    } = req.body;
 
     if (!text || typeof text !== "string" || !text.trim()) {
       return res.status(400).json({
@@ -134,7 +141,11 @@ app.post("/api/tts", async (req, res) => {
     let promptText = text.trim();
     let speechConfig: Record<string, any>;
 
-    if (mode === "dialogue" && Array.isArray(speakers) && speakers.length >= 2) {
+    if (
+      mode === "dialogue" &&
+      Array.isArray(speakers) &&
+      speakers.length >= 2
+    ) {
       const spk1 = speakers[0];
       const spk2 = speakers[1];
       const s1Name = spk1.speaker?.trim() || "Speaker 1";
@@ -201,7 +212,8 @@ app.post("/api/tts", async (req, res) => {
     const wavBase64 = wavBuffer.toString("base64");
 
     const mp3Buffer = convertPcmToMp3(rawBuffer, 24000, 1, 128);
-    const mp3Base64 = mp3Buffer.length > 0 ? mp3Buffer.toString("base64") : undefined;
+    const mp3Base64 =
+      mp3Buffer.length > 0 ? mp3Buffer.toString("base64") : undefined;
 
     // Estimate duration: 24,000 samples/sec * 2 bytes/sample = 48,000 bytes/sec
     const durationSeconds = +(rawBuffer.length / 48000).toFixed(2);
@@ -216,7 +228,8 @@ app.post("/api/tts", async (req, res) => {
     });
   } catch (error: any) {
     console.error("TTS generation error:", error);
-    const message = error?.message || "Failed to generate speech with Gemini TTS.";
+    const message =
+      error?.message || "Failed to generate speech with Gemini TTS.";
     return res.status(500).json({
       success: false,
       error: message,
